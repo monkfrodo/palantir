@@ -32,9 +32,9 @@ class LoneKnightSaverView: ScreenSaverView {
 
     private func resolveVideoURL() -> URL {
         let wallpapersDir = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("projetos/live-wallpaper/wallpapers")
+            .appendingPathComponent(".palantir/wallpapers")
         let configFile = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("projetos/live-wallpaper/.lock-wallpaper")
+            .appendingPathComponent(".palantir/.lock-wallpaper")
 
         // 1. Read from shared config file (written by main app)
         if let filename = try? String(contentsOf: configFile, encoding: .utf8)
@@ -53,7 +53,7 @@ class LoneKnightSaverView: ScreenSaverView {
 
         // 3. Last resort
         return URL(fileURLWithPath: FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("projetos/live-wallpaper/Lone Knight at Sunset.mov").path)
+            .appendingPathComponent(".palantir/Lone Knight at Sunset.mov").path)
     }
 
     private func setupPlayer() {

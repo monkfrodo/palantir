@@ -7,8 +7,19 @@ import CoreMedia
 
 @main
 struct LiveWallpaperApp {
-    static let wallpapersDir = FileManager.default.homeDirectoryForCurrentUser
-        .appendingPathComponent("projetos/live-wallpaper/wallpapers")
+    static let baseDir: URL = {
+        // Resolve base directory: ~/.palantir/ or directory of the executable
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let palantirDir = home.appendingPathComponent(".palantir")
+        if FileManager.default.fileExists(atPath: palantirDir.path) {
+            return palantirDir
+        }
+        // Fallback: resolve from executable location
+        let execURL = URL(fileURLWithPath: CommandLine.arguments[0]).deletingLastPathComponent()
+        return execURL
+    }()
+
+    static let wallpapersDir = baseDir.appendingPathComponent("wallpapers")
 
     static func main() {
         let app = NSApplication.shared
@@ -130,8 +141,7 @@ class WallpaperManager: ObservableObject {
     private var workspaceObservers: [NSObjectProtocol] = []
 
     private static let framesDir: URL = {
-        let dir = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("projetos/live-wallpaper/.frames")
+        let dir = LiveWallpaperApp.baseDir.appendingPathComponent(".frames")
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir
     }()
