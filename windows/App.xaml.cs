@@ -6,7 +6,7 @@ using Microsoft.Win32;
 
 namespace Palantir;
 
-public partial class App : Application
+public partial class App : System.Windows.Application
 {
     public static string BaseDir { get; private set; } = string.Empty;
     public static string WallpapersDir { get; private set; } = string.Empty;
