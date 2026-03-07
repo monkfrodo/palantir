@@ -107,6 +107,8 @@ public class TrayIconManager : IDisposable
         return menu;
     }
 
+    public void OpenGalleryPublic() => OpenGallery();
+
     private void OpenGallery()
     {
         if (_galleryWindow != null && _galleryWindow.IsVisible)
