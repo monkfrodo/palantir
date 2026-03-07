@@ -75,9 +75,11 @@ if [ "$EXISTING" -eq 0 ]; then
             ext_lower=$(echo "$ext" | tr '[:upper:]' '[:lower:]')
 
             if [[ "$ext_lower" == "mov" || "$ext_lower" == "mp4" || "$ext_lower" == "m4v" ]]; then
-                if [ ! -f "wallpapers/$filename" ]; then
-                    echo "   Baixando: $filename"
-                    curl -sL -o "wallpapers/$filename" "$url"
+                # GitHub replaces spaces with dots in release asset names — restore them
+                clean_name=$(echo "${filename%.*}" | sed 's/\./ /g')."$ext_lower"
+                if [ ! -f "wallpapers/$clean_name" ]; then
+                    echo "   Baixando: $clean_name"
+                    curl -sL -o "wallpapers/$clean_name" "$url"
                     COUNT=$((COUNT + 1))
                 fi
             fi
