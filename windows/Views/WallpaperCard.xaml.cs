@@ -1,9 +1,9 @@
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using Palantir.Core;
+using MouseEventArgs = System.Windows.Input.MouseEventArgs;
 
 namespace Palantir.Views;
 
@@ -26,7 +26,7 @@ public class WallpaperActionEventArgs : EventArgs
     }
 }
 
-public partial class WallpaperCard : UserControl
+public partial class WallpaperCard : System.Windows.Controls.UserControl
 {
     public WallpaperItem WallpaperItem { get; }
     private readonly WallpaperManager _manager;

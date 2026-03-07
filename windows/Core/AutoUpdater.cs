@@ -16,7 +16,7 @@ public class AutoUpdater
     private static readonly TimeSpan InitialDelay = TimeSpan.FromSeconds(30);
     private static readonly string[] SupportedExtensions = { ".mov", ".mp4", ".m4v" };
 
-    private Timer? _timer;
+    private System.Threading.Timer? _timer;
     private readonly HttpClient _httpClient;
     private Action? _onNewWallpapers;
 
@@ -31,7 +31,7 @@ public class AutoUpdater
         _onNewWallpapers = onNewWallpapers;
 
         // Check once after initial delay, then every 6 hours
-        _timer = new Timer(
+        _timer = new System.Threading.Timer(
             _ => _ = CheckForNewWallpapers(),
             null,
             InitialDelay,
@@ -91,7 +91,7 @@ public class AutoUpdater
 
             if (downloaded > 0)
             {
-                Application.Current?.Dispatcher.Invoke(() =>
+                System.Windows.Application.Current?.Dispatcher.Invoke(() =>
                 {
                     _onNewWallpapers?.Invoke();
                 });
@@ -109,7 +109,7 @@ public class AutoUpdater
     {
         try
         {
-            Application.Current?.Dispatcher.Invoke(() =>
+            System.Windows.Application.Current?.Dispatcher.Invoke(() =>
             {
                 var message = count == 1
                     ? "1 new wallpaper downloaded. Open the gallery to check it out!"

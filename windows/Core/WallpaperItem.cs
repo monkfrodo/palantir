@@ -65,7 +65,7 @@ public class WallpaperItem
             {
                 thumb.Freeze();
             }
-            Application.Current?.Dispatcher.Invoke(() => callback(thumb));
+            System.Windows.Application.Current?.Dispatcher.Invoke(() => callback(thumb));
         });
 
         return null;

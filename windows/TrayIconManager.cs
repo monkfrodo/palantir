@@ -36,7 +36,7 @@ public class TrayIconManager : IDisposable
         {
             if (e.PropertyName == nameof(WallpaperManager.ActiveDesktopWallpaper))
             {
-                Application.Current?.Dispatcher.Invoke(() =>
+                System.Windows.Application.Current?.Dispatcher.Invoke(() =>
                 {
                     _trayIcon.ContextMenu = BuildContextMenu();
                     _trayIcon.ToolTipText = WallpaperManager.ActiveDesktopWallpaper != null
@@ -100,7 +100,7 @@ public class TrayIconManager : IDisposable
         quitItem.Click += (s, e) =>
         {
             WallpaperManager.Stop();
-            Application.Current.Shutdown();
+            System.Windows.Application.Current.Shutdown();
         };
         menu.Items.Add(quitItem);
 
