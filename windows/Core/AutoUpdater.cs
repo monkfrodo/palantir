@@ -51,7 +51,7 @@ public class AutoUpdater
                 return;
 
             var existingFiles = Directory.Exists(App.WallpapersDir)
-                ? Directory.GetFiles(App.WallpapersDir).Select(Path.GetFileName).ToHashSet(StringComparer.OrdinalIgnoreCase)
+                ? Directory.GetFiles(App.WallpapersDir).Select(f => Path.GetFileName(f)!).ToHashSet(StringComparer.OrdinalIgnoreCase)
                 : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             int downloaded = 0;

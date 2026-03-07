@@ -346,7 +346,7 @@ public class WallpaperManager : INotifyPropertyChanged
 
             if (enable)
             {
-                var exePath = Environment.ProcessPath ?? System.Reflection.Assembly.GetExecutingAssembly().Location;
+                var exePath = Environment.ProcessPath ?? AppContext.BaseDirectory + "Palantir.exe";
                 key.SetValue(AutoStartValueName, $"\"{exePath}\"", RegistryValueKind.String);
             }
             else

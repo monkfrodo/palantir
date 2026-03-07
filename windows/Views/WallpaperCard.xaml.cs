@@ -79,15 +79,15 @@ public partial class WallpaperCard : System.Windows.Controls.UserControl
 
         if (isDesktop)
         {
-            RootBorder.BorderBrush = new SolidColorBrush(Color.FromArgb(128, 76, 175, 80));
+            RootBorder.BorderBrush = new SolidColorBrush(System.Windows.Media.Color.FromArgb(128, 76, 175, 80));
         }
         else if (isLock)
         {
-            RootBorder.BorderBrush = new SolidColorBrush(Color.FromArgb(128, 66, 165, 245));
+            RootBorder.BorderBrush = new SolidColorBrush(System.Windows.Media.Color.FromArgb(128, 66, 165, 245));
         }
         else
         {
-            RootBorder.BorderBrush = Brushes.Transparent;
+            RootBorder.BorderBrush = System.Windows.Media.Brushes.Transparent;
         }
     }
 

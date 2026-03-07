@@ -1,4 +1,5 @@
 using System.Drawing;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using Hardcodet.Wpf.TaskbarNotification;
@@ -173,9 +174,9 @@ public class TrayIconManager : IDisposable
     private Style CreateDarkMenuStyle()
     {
         var style = new Style(typeof(ContextMenu));
-        style.Setters.Add(new Setter(Control.BackgroundProperty, System.Windows.Media.Brushes.Black));
-        style.Setters.Add(new Setter(Control.ForegroundProperty, System.Windows.Media.Brushes.White));
-        style.Setters.Add(new Setter(Control.BorderBrushProperty,
+        style.Setters.Add(new Setter(System.Windows.Controls.Control.BackgroundProperty, System.Windows.Media.Brushes.Black));
+        style.Setters.Add(new Setter(System.Windows.Controls.Control.ForegroundProperty, System.Windows.Media.Brushes.White));
+        style.Setters.Add(new Setter(System.Windows.Controls.Control.BorderBrushProperty,
             new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(64, 64, 64))));
         return style;
     }
