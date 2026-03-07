@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import AVFoundation
+import CoreMedia
 
 // MARK: - App Entry
 
@@ -125,6 +126,36 @@ class WallpaperManager: ObservableObject {
     @Published var lockScreenWallpaper: String?
     var windows: [NSWindow] = []
     var players: [AVPlayer] = []
+    private var activeVideoURL: URL?
+    private var workspaceObservers: [NSObjectProtocol] = []
+
+    private static let framesDir: URL = {
+        let dir = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("projetos/live-wallpaper/.frames")
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }()
+
+    // Aerials injection paths (same approach as Wallux)
+    private static let aerialsBase: URL = FileManager.default.homeDirectoryForCurrentUser
+        .appendingPathComponent("Library/Application Support/com.apple.wallpaper/aerials")
+    private static let manifestFile: URL = aerialsBase.appendingPathComponent("manifest/entries.json")
+    private static let thumbnailsDir: URL = aerialsBase.appendingPathComponent("thumbnails")
+
+    private static let categoryID = "LW000000-0000-4000-8000-000000000001"
+    private static let subcategoryID = "LW000000-0000-4000-8000-000000000002"
+
+    /// Generates a stable UUID for a wallpaper filename (deterministic so it persists across runs)
+    private static func stableUUID(for filename: String) -> String {
+        // Check cached mapping first
+        let key = "uuid_\(filename)"
+        if let cached = UserDefaults.standard.string(forKey: key) {
+            return cached
+        }
+        let uuid = UUID().uuidString
+        UserDefaults.standard.set(uuid, forKey: key)
+        return uuid
+    }
 
     func loadWallpapers() {
         let dir = LiveWallpaperApp.wallpapersDir
@@ -138,15 +169,93 @@ class WallpaperManager: ObservableObject {
             .map { WallpaperItem(url: $0) }
 
         lockScreenWallpaper = UserDefaults.standard.string(forKey: "lockScreenWallpaper")
+
+        // Sync all wallpapers to macOS aerials system (each gets its own tile in System Settings)
+        syncAllToAerials()
     }
 
     func restoreSaved() {
-        if let saved = UserDefaults.standard.string(forKey: "activeWallpaper") {
-            activeWallpaper = saved
-            if let item = wallpapers.first(where: { $0.url.lastPathComponent == saved }) {
-                setDesktop(item: item)
+        // Small delay to ensure desktop is ready after login
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [self] in
+            if let saved = UserDefaults.standard.string(forKey: "activeWallpaper") {
+                activeWallpaper = saved
+                if let item = wallpapers.first(where: { $0.url.lastPathComponent == saved }) {
+                    setDesktop(item: item)
+                }
             }
         }
+        startWorkspaceObservers()
+    }
+
+    private func startWorkspaceObservers() {
+        stopWorkspaceObservers()
+
+        // Re-show windows when active space changes
+        let spaceObs = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.activeSpaceDidChangeNotification,
+            object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.reassertWindows()
+        }
+        workspaceObservers.append(spaceObs)
+
+        // Re-show windows when screen wakes up
+        let wakeObs = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.screensDidWakeNotification,
+            object: nil, queue: .main
+        ) { [weak self] _ in
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                self?.reassertWindows()
+            }
+        }
+        workspaceObservers.append(wakeObs)
+
+        // Re-show windows when screen unlocks (prevents black screen after ESC on lock)
+        let unlockObs = DistributedNotificationCenter.default().addObserver(
+            forName: NSNotification.Name("com.apple.screenIsUnlocked"),
+            object: nil, queue: .main
+        ) { [weak self] _ in
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                self?.reassertWindows()
+                // Resume playback in case it was paused
+                self?.players.forEach { $0.play() }
+            }
+        }
+        workspaceObservers.append(unlockObs)
+
+        // Re-show windows when screens change configuration
+        let screenObs = NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification,
+            object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.handleScreenChange()
+        }
+        workspaceObservers.append(screenObs)
+    }
+
+    private func stopWorkspaceObservers() {
+        for obs in workspaceObservers {
+            NSWorkspace.shared.notificationCenter.removeObserver(obs)
+            NotificationCenter.default.removeObserver(obs)
+        }
+        workspaceObservers.removeAll()
+    }
+
+    private func reassertWindows() {
+        for window in windows {
+            window.orderFront(nil)
+        }
+        // Also re-set static wallpaper in case macOS changed it
+        if let url = activeVideoURL {
+            setStaticWallpaper(from: url)
+        }
+    }
+
+    private func handleScreenChange() {
+        guard let name = activeWallpaper,
+              let item = wallpapers.first(where: { $0.url.lastPathComponent == name }) else { return }
+        // Recreate windows for new screen layout
+        setDesktop(item: item)
     }
 
     func activate(filename: String) {
@@ -164,7 +273,11 @@ class WallpaperManager: ObservableObject {
     func setDesktop(item: WallpaperItem) {
         stopDesktop()
         activeWallpaper = item.url.lastPathComponent
+        activeVideoURL = item.url
         UserDefaults.standard.set(activeWallpaper, forKey: "activeWallpaper")
+
+        // Set macOS static wallpaper to a frame from the video (fallback for lock, restart, etc.)
+        setStaticWallpaper(from: item.url)
 
         let asset = AVURLAsset(url: item.url)
         let playerItem = AVPlayerItem(asset: asset)
@@ -214,27 +327,176 @@ class WallpaperManager: ObservableObject {
         player.play()
     }
 
+    /// Extracts a frame from the video and sets it as macOS static wallpaper for all screens
+    private func setStaticWallpaper(from videoURL: URL) {
+        DispatchQueue.global(qos: .utility).async {
+            let frameURL = self.extractFrame(from: videoURL)
+            guard let frameURL = frameURL else { return }
+
+            DispatchQueue.main.async {
+                for screen in NSScreen.screens {
+                    try? NSWorkspace.shared.setDesktopImageURL(
+                        frameURL, for: screen, options: [:]
+                    )
+                }
+            }
+        }
+    }
+
+    /// Extracts a frame from video and caches it as PNG
+    private func extractFrame(from videoURL: URL) -> URL? {
+        let name = videoURL.deletingPathExtension().lastPathComponent
+        let frameURL = Self.framesDir.appendingPathComponent("\(name).png")
+
+        // Use cached frame if available
+        if FileManager.default.fileExists(atPath: frameURL.path) {
+            return frameURL
+        }
+
+        let asset = AVURLAsset(url: videoURL)
+        let generator = AVAssetImageGenerator(asset: asset)
+        generator.appliesPreferredTrackTransform = true
+        // High quality frame for wallpaper
+        generator.maximumSize = CGSize(width: 3840, height: 2160)
+
+        let time = CMTime(seconds: 2, preferredTimescale: 600)
+        guard let cgImage = try? generator.copyCGImage(at: time, actualTime: nil) else {
+            return nil
+        }
+
+        let rep = NSBitmapImageRep(cgImage: cgImage)
+        guard let pngData = rep.representation(using: .png, properties: [:]) else {
+            return nil
+        }
+
+        try? pngData.write(to: frameURL)
+        return frameURL
+    }
+
     func setLockScreen(item: WallpaperItem) {
         let filename = item.url.lastPathComponent
-        let sourceURL = item.url
-
+        DispatchQueue.main.async { [self] in
+            lockScreenWallpaper = filename
+            UserDefaults.standard.set(filename, forKey: "lockScreenWallpaper")
+        }
+        // Aerials are already synced via loadWallpapers/syncAllToAerials
+        // Just restart the extension to ensure latest state
         DispatchQueue.global(qos: .utility).async {
-            let saverDir = FileManager.default.homeDirectoryForCurrentUser
-                .appendingPathComponent("Library/Screen Savers/LoneKnightSaver.saver/Contents/Resources")
-            let dest = saverDir.appendingPathComponent("wallpaper.mov")
+            let kill = Process()
+            kill.executableURL = URL(fileURLWithPath: "/usr/bin/killall")
+            kill.arguments = ["WallpaperAerialsExtension"]
+            try? kill.run()
+        }
+    }
 
-            try? FileManager.default.removeItem(at: dest)
-            try? FileManager.default.copyItem(at: sourceURL, to: dest)
-
-            let task = Process()
-            task.executableURL = URL(fileURLWithPath: "/usr/bin/killall")
-            task.arguments = ["legacyScreenSaver"]
-            try? task.run()
-
-            DispatchQueue.main.async { [self] in
-                lockScreenWallpaper = filename
-                UserDefaults.standard.set(filename, forKey: "lockScreenWallpaper")
+    /// Syncs ALL wallpapers to macOS aerials system — each one gets its own tile in System Settings
+    private func syncAllToAerials() {
+        let items = wallpapers
+        DispatchQueue.global(qos: .utility).async { [self] in
+            // Create directories
+            let manifestDir = Self.aerialsBase.appendingPathComponent("manifest")
+            for dir in [manifestDir, Self.thumbnailsDir] {
+                try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
             }
+
+            // Read existing manifest
+            var manifest: [String: Any]
+            if let data = try? Data(contentsOf: Self.manifestFile),
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                manifest = json
+            } else {
+                let systemManifest = URL(fileURLWithPath:
+                    "/System/Library/PrivateFrameworks/WallpaperAerialAssets.framework/Versions/A/Resources/entries.json")
+                if let data = try? Data(contentsOf: systemManifest),
+                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                    manifest = json
+                } else {
+                    manifest = ["assets": [[String: Any]](), "categories": [[String: Any]]()]
+                }
+            }
+
+            var assets = manifest["assets"] as? [[String: Any]] ?? []
+            var categories = manifest["categories"] as? [[String: Any]] ?? []
+
+            // Remove all our previous assets (any ID that has a cached uuid_ key)
+            assets.removeAll { asset in
+                guard let id = asset["id"] as? String else { return false }
+                return (asset["categories"] as? [String])?.contains(Self.categoryID) == true
+                    || id == "LW000000-0000-4000-8000-AAAAAAAAAAAA" // old fixed ID
+            }
+
+            // Remove old fixed-UUID video if it exists
+            let oldVideo = Self.aerialsBase.appendingPathComponent("videos/LW000000-0000-4000-8000-AAAAAAAAAAAA.mov")
+            try? FileManager.default.removeItem(at: oldVideo)
+
+            // Add each wallpaper as a separate aerial asset
+            var firstAssetID: String?
+            for (i, item) in items.enumerated() {
+                let filename = item.url.lastPathComponent
+                let assetID = Self.stableUUID(for: filename)
+                if i == 0 { firstAssetID = assetID }
+
+                // Generate thumbnail if needed
+                let thumbDest = Self.thumbnailsDir.appendingPathComponent("\(assetID).png")
+                if !FileManager.default.fileExists(atPath: thumbDest.path) {
+                    if let frameURL = extractFrame(from: item.url) {
+                        try? FileManager.default.copyItem(at: frameURL, to: thumbDest)
+                    }
+                }
+
+                // Use absolute file URL — no need to copy the video
+                let absoluteURL = item.url.absoluteString
+
+                let asset: [String: Any] = [
+                    "id": assetID,
+                    "accessibilityLabel": item.name,
+                    "localizedNameKey": item.name,
+                    "categories": [Self.categoryID],
+                    "subcategories": [Self.subcategoryID],
+                    "url-4K-SDR-240FPS": absoluteURL,
+                    "previewImage": "thumbnails/\(assetID).png",
+                    "shotID": "LW_\(String(assetID.prefix(6)))",
+                    "pointsOfInterest": ["0": "LW_0"],
+                    "showInTopLevel": true,
+                    "includeInShuffle": true,
+                    "preferredOrder": i
+                ]
+                assets.insert(asset, at: i)
+            }
+
+            // Add/update our category
+            let repID = firstAssetID ?? ""
+            categories.removeAll { ($0["id"] as? String) == Self.categoryID }
+            let category: [String: Any] = [
+                "id": Self.categoryID,
+                "localizedDescriptionKey": "Live Wallpaper",
+                "localizedNameKey": "Live Wallpaper",
+                "preferredOrder": 0,
+                "previewImage": firstAssetID.map { "thumbnails/\($0).png" } ?? "",
+                "representativeAssetID": repID,
+                "subcategories": [[
+                    "id": Self.subcategoryID,
+                    "localizedDescriptionKey": "Live Wallpaper",
+                    "localizedNameKey": "Live Wallpaper",
+                    "preferredOrder": 0,
+                    "previewImage": firstAssetID.map { "thumbnails/\($0).png" } ?? "",
+                    "representativeAssetID": repID
+                ] as [String: Any]]
+            ]
+            categories.insert(category, at: 0)
+
+            manifest["assets"] = assets
+            manifest["categories"] = categories
+
+            if let data = try? JSONSerialization.data(withJSONObject: manifest, options: [.prettyPrinted, .sortedKeys]) {
+                try? data.write(to: Self.manifestFile)
+            }
+
+            // Restart WallpaperAerialsExtension to pick up changes
+            let kill = Process()
+            kill.executableURL = URL(fileURLWithPath: "/usr/bin/killall")
+            kill.arguments = ["WallpaperAerialsExtension"]
+            try? kill.run()
         }
     }
 
@@ -248,7 +510,9 @@ class WallpaperManager: ObservableObject {
     func stop() {
         stopDesktop()
         activeWallpaper = nil
+        activeVideoURL = nil
         UserDefaults.standard.removeObject(forKey: "activeWallpaper")
+        stopWorkspaceObservers()
     }
 }
 

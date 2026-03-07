@@ -8,7 +8,7 @@ cd "$DIR"
 
 echo "Compilando Live Wallpaper..."
 swiftc -o LiveWallpaper -parse-as-library App.swift \
-    -framework AppKit -framework AVFoundation -framework CoreMedia -framework SwiftUI 2>&1 | grep -v warning || true
+    -framework AppKit -framework AVFoundation -framework CoreMedia -framework SwiftUI -framework CoreGraphics 2>&1 | grep -v warning || true
 
 echo "Compilando Screen Saver..."
 mkdir -p LoneKnightSaver.saver/Contents/MacOS LoneKnightSaver.saver/Contents/Resources
