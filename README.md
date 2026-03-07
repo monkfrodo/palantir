@@ -1,50 +1,76 @@
-# Palantir
+<p align="center">
+  <br>
+  <strong>◆ &nbsp; P A L A N T Í R &nbsp; ◆</strong>
+  <br>
+  <em>Wallpapers animados para macOS</em>
+  <br><br>
+  Nativo, leve, sem apps de terceiros.
+  <br>
+  ~0% de CPU — decodificação por hardware.
+  <br><br>
+</p>
 
-Live wallpapers for macOS — native, lightweight, no third-party apps.
+---
 
-## Install
+## Instalação
+
+Abre o Terminal e cola:
 
 ```bash
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/monkfrodo/palantir/main/install.sh)"
 ```
 
-That's it. The script will:
-- Clone the repo to `~/.palantir/`
-- Download wallpapers from the latest release
-- Compile the app
-- Set up auto-start
+Isso vai:
+1. Baixar o Palantir pra `~/.palantir/`
+2. Baixar os wallpapers automaticamente
+3. Compilar o app
+4. Configurar pra abrir junto com o Mac
 
-## Usage
+Pronto. Procura o **icone de TV** na barra de menu.
 
-- Click the **TV icon** in the menu bar
-- **Open Gallery** — browse all wallpapers
-- Hover a wallpaper and choose:
-  - **Both** — desktop + lock screen
-  - **Desktop** — animated desktop only
-  - **Lock** — lock screen only
-- **Stop Wallpaper** — stop the active wallpaper
-- Add your own `.mov`/`.mp4` files to `~/.palantir/wallpapers/` and hit Refresh
+## Como usar
 
-## How it works
+Clica no icone de **TV** na menu bar e depois em **Open Gallery**.
 
-- **Desktop**: borderless window at desktop level with hardware-accelerated video playback (AVPlayer)
-- **Lock screen**: injects wallpapers into macOS native aerials system (same approach as Wallux/Wallper)
-- **~0% CPU** thanks to hardware video decoding
-- Survives space changes, wake, unlock, and restarts
+Passa o mouse por cima de qualquer wallpaper e escolhe:
 
-## Update
+| Botao | O que faz |
+|---|---|
+| **Both** | Desktop + tela de bloqueio |
+| **Desktop** | So o desktop animado |
+| **Lock** | So a tela de bloqueio |
+
+Pra parar, clica em **Stop Wallpaper** no menu.
+
+### Adicionar wallpapers novos
+
+Joga qualquer `.mov` ou `.mp4` na pasta `~/.palantir/wallpapers/` e clica **Refresh** na galeria.
+
+## Como funciona
+
+- **Desktop** — janela invisivel no nivel do desktop tocando video em loop com AVPlayer
+- **Tela de bloqueio** — injeta os wallpapers no sistema nativo de aerials do macOS (mesmo mecanismo que apps como Wallux)
+- **Resiliente** — sobrevive troca de espacos, sleep, unlock e restart
+
+## Atualizar
 
 ```bash
 ~/.palantir/install.sh
 ```
 
-## Uninstall
+## Desinstalar
 
 ```bash
 ~/.palantir/uninstall.sh
 ```
 
-## Requirements
+## Requisitos
 
-- macOS 14+ (Sonoma or later)
-- Xcode Command Line Tools (installed automatically if missing)
+- macOS 14+ (Sonoma)
+- Xcode Command Line Tools (instalado automaticamente se nao tiver)
+
+---
+
+<p align="center">
+  <em>"O que você vê na pedra?"</em>
+</p>

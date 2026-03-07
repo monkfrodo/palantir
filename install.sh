@@ -13,6 +13,7 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
 CYAN='\033[0;36m'
+BOLD='\033[1m'
 NC='\033[0m'
 
 info()  { echo -e "${CYAN}==>${NC} $1"; }
@@ -21,27 +22,30 @@ warn()  { echo -e "${YELLOW}==>${NC} $1"; }
 fail()  { echo -e "${RED}==>${NC} $1"; exit 1; }
 
 echo ""
-echo -e "${CYAN}  ◆ Palantir${NC} — Live Wallpaper for macOS"
+echo -e "${BOLD}${CYAN}"
+echo "       ◆ P A L A N T Í R ◆"
+echo -e "${NC}"
+echo "   Live Wallpapers para macOS"
 echo ""
 
 # ── 1. Check macOS ──────────────────────────────────────────────
-[[ "$(uname)" == "Darwin" ]] || fail "Palantir only works on macOS."
+[[ "$(uname)" == "Darwin" ]] || fail "Palantir funciona apenas no macOS."
 
 # ── 2. Check Xcode CLI Tools ───────────────────────────────────
 if ! xcode-select -p &>/dev/null; then
-    info "Installing Xcode Command Line Tools (required to compile)..."
+    info "Instalando Xcode Command Line Tools (necessario pra compilar)..."
     xcode-select --install
     echo ""
-    warn "After Xcode tools finish installing, run this script again."
+    warn "Depois que o Xcode tools terminar de instalar, roda esse script de novo."
     exit 0
 fi
 
 # ── 3. Clone or update repo ────────────────────────────────────
 if [ -d "$INSTALL_DIR/.git" ]; then
-    info "Updating Palantir..."
+    info "Atualizando Palantir..."
     git -C "$INSTALL_DIR" pull --ff-only -q 2>/dev/null || true
 else
-    info "Cloning Palantir..."
+    info "Baixando Palantir..."
     rm -rf "$INSTALL_DIR"
     git clone -q "https://github.com/$REPO.git" "$INSTALL_DIR"
 fi
@@ -50,20 +54,19 @@ cd "$INSTALL_DIR"
 mkdir -p wallpapers .frames
 
 # ── 4. Download wallpapers from GitHub Release ─────────────────
-info "Checking for wallpapers..."
+info "Verificando wallpapers..."
 
 EXISTING=$(ls wallpapers/*.mov wallpapers/*.mp4 2>/dev/null | wc -l | tr -d ' ')
 
 if [ "$EXISTING" -eq 0 ]; then
-    info "Downloading wallpapers from latest release..."
+    info "Baixando wallpapers da ultima release..."
 
-    # Get asset URLs from latest release
     ASSETS=$(curl -sL "https://api.github.com/repos/$REPO/releases/latest" \
         | grep -o '"browser_download_url": *"[^"]*"' \
         | grep -oE 'https://[^"]+' || true)
 
     if [ -z "$ASSETS" ]; then
-        warn "No release found. Add .mov/.mp4 files to $INSTALL_DIR/wallpapers/ manually."
+        warn "Nenhuma release encontrada. Adicione arquivos .mov/.mp4 em $INSTALL_DIR/wallpapers/"
     else
         COUNT=0
         for url in $ASSETS; do
@@ -73,50 +76,52 @@ if [ "$EXISTING" -eq 0 ]; then
 
             if [[ "$ext_lower" == "mov" || "$ext_lower" == "mp4" || "$ext_lower" == "m4v" ]]; then
                 if [ ! -f "wallpapers/$filename" ]; then
-                    echo "   Downloading: $filename"
+                    echo "   Baixando: $filename"
                     curl -sL -o "wallpapers/$filename" "$url"
                     COUNT=$((COUNT + 1))
                 fi
             fi
         done
-        ok "Downloaded $COUNT wallpaper(s)."
+        ok "$COUNT wallpaper(s) baixados."
     fi
 else
-    ok "$EXISTING wallpaper(s) already present."
+    ok "$EXISTING wallpaper(s) ja presentes."
 fi
 
 # ── 5. Compile ─────────────────────────────────────────────────
-info "Compiling Palantir..."
+info "Compilando..."
 
-swiftc -o Palantir -parse-as-library App.swift \
+swiftc -o Palantir -parse-as-library src/App.swift \
     -framework AppKit -framework AVFoundation -framework CoreMedia \
     -framework SwiftUI -framework CoreGraphics 2>&1 | grep -v warning || true
 
 # Screen saver
-mkdir -p LoneKnightSaver.saver/Contents/MacOS LoneKnightSaver.saver/Contents/Resources
+mkdir -p build/LoneKnightSaver.saver/Contents/MacOS build/LoneKnightSaver.saver/Contents/Resources
 
 swiftc -emit-library -module-name LoneKnightSaver \
-    -o LoneKnightSaver.saver/Contents/MacOS/LoneKnightSaver \
-    LoneKnightSaver.swift \
+    -o build/LoneKnightSaver.saver/Contents/MacOS/LoneKnightSaver \
+    src/LoneKnightSaver.swift \
     -framework ScreenSaver -framework AVFoundation -framework AppKit \
     -Xlinker -bundle 2>&1 | grep -v warning || true
 
+cp screensaver/Info.plist build/LoneKnightSaver.saver/Contents/Info.plist
+
 # Copy first wallpaper as screen saver default
-if [ ! -f "LoneKnightSaver.saver/Contents/Resources/wallpaper.mov" ]; then
+if [ ! -f "build/LoneKnightSaver.saver/Contents/Resources/wallpaper.mov" ]; then
     FIRST=$(ls wallpapers/*.mov wallpapers/*.mp4 2>/dev/null | head -1)
     if [ -n "$FIRST" ]; then
-        cp "$FIRST" LoneKnightSaver.saver/Contents/Resources/wallpaper.mov
+        cp "$FIRST" build/LoneKnightSaver.saver/Contents/Resources/wallpaper.mov
     fi
 fi
 
 # Install screen saver
 rm -rf "$HOME/Library/Screen Savers/LoneKnightSaver.saver"
-cp -R LoneKnightSaver.saver "$HOME/Library/Screen Savers/"
+cp -R build/LoneKnightSaver.saver "$HOME/Library/Screen Savers/"
 codesign --force --deep --sign - "$HOME/Library/Screen Savers/LoneKnightSaver.saver" 2>/dev/null || true
 killall legacyScreenSaver 2>/dev/null || true
 
 # ── 6. LaunchAgent (auto-start) ────────────────────────────────
-info "Setting up auto-start..."
+info "Configurando auto-start..."
 
 # Stop old versions
 launchctl unload "$PLIST" 2>/dev/null || true
@@ -145,11 +150,11 @@ launchctl load "$PLIST"
 
 # ── 7. Done ────────────────────────────────────────────────────
 echo ""
-ok "Palantir installed!"
+ok "Palantir instalado!"
 echo ""
-echo "   Menu bar: look for the TV icon"
+echo "   Procura o icone de TV na barra de menu."
 echo "   Wallpapers: $INSTALL_DIR/wallpapers/"
-echo "   Uninstall: ~/.palantir/uninstall.sh"
+echo "   Desinstalar: ~/.palantir/uninstall.sh"
 echo ""
-echo -e "   ${CYAN}Open the gallery from the menu bar to get started.${NC}"
+echo -e "   ${CYAN}Abre a galeria pelo menu bar pra comecar.${NC}"
 echo ""

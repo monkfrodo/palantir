@@ -1,7 +1,6 @@
 Palantir
 LiveWallpaper
-LoneKnightSaver.saver/Contents/MacOS/LoneKnightSaver
-LoneKnightSaver.saver/Contents/Resources/wallpaper.mov
+build/
 wallpapers/
 .frames/
 .lock-wallpaper
