@@ -444,12 +444,12 @@ class WallpaperManager: ObservableObject {
                     }
                 }
 
-                // Symlink video into aerials/videos/ (no disk space used)
+                // Copy video into aerials/videos/ (WallpaperAerialsExtension is sandboxed, can't follow symlinks)
                 let videosDir = Self.aerialsBase.appendingPathComponent("videos")
                 try? FileManager.default.createDirectory(at: videosDir, withIntermediateDirectories: true)
-                let linkDest = videosDir.appendingPathComponent("\(assetID).mov")
-                if !FileManager.default.fileExists(atPath: linkDest.path) {
-                    try? FileManager.default.createSymbolicLink(at: linkDest, withDestinationURL: item.url)
+                let videoDest = videosDir.appendingPathComponent("\(assetID).mov")
+                if !FileManager.default.fileExists(atPath: videoDest.path) {
+                    try? FileManager.default.copyItem(at: item.url, to: videoDest)
                 }
 
                 let asset: [String: Any] = [
