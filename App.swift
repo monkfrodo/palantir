@@ -444,8 +444,13 @@ class WallpaperManager: ObservableObject {
                     }
                 }
 
-                // Use absolute file URL — no need to copy the video
-                let absoluteURL = item.url.absoluteString
+                // Symlink video into aerials/videos/ (no disk space used)
+                let videosDir = Self.aerialsBase.appendingPathComponent("videos")
+                try? FileManager.default.createDirectory(at: videosDir, withIntermediateDirectories: true)
+                let linkDest = videosDir.appendingPathComponent("\(assetID).mov")
+                if !FileManager.default.fileExists(atPath: linkDest.path) {
+                    try? FileManager.default.createSymbolicLink(at: linkDest, withDestinationURL: item.url)
+                }
 
                 let asset: [String: Any] = [
                     "id": assetID,
@@ -453,7 +458,7 @@ class WallpaperManager: ObservableObject {
                     "localizedNameKey": item.name,
                     "categories": [Self.categoryID],
                     "subcategories": [Self.subcategoryID],
-                    "url-4K-SDR-240FPS": absoluteURL,
+                    "url-4K-SDR-240FPS": "videos/\(assetID).mov",
                     "previewImage": "thumbnails/\(assetID).png",
                     "shotID": "LW_\(String(assetID.prefix(6)))",
                     "pointsOfInterest": ["0": "LW_0"],
