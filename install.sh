@@ -95,7 +95,8 @@ info "Compilando..."
 
 swiftc -o Palantir -parse-as-library src/App.swift \
     -framework AppKit -framework AVFoundation -framework CoreMedia \
-    -framework SwiftUI -framework CoreGraphics 2>&1 | grep -v warning || true
+    -framework SwiftUI -framework CoreGraphics -framework UserNotifications \
+    2>&1 | grep -v warning || true
 
 # Screen saver
 mkdir -p build/LoneKnightSaver.saver/Contents/MacOS build/LoneKnightSaver.saver/Contents/Resources

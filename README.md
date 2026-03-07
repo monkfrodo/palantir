@@ -1,76 +1,103 @@
 <p align="center">
   <br>
-  <strong>◆ &nbsp; P A L A N T Í R &nbsp; ◆</strong>
-  <br>
-  <em>Wallpapers animados para macOS</em>
+  <img src="https://img.shields.io/badge/macOS-14%2B-000?style=flat-square&logo=apple&logoColor=white" />
+  <img src="https://img.shields.io/badge/CPU-~0%25-22c55e?style=flat-square" />
+  <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" />
   <br><br>
-  Nativo, leve, sem apps de terceiros.
+  <strong>◆ &nbsp; P A L A N T Í R &nbsp; ◆</strong>
+  <br><br>
+  <em>Live wallpapers for macOS — native, lightweight, zero third-party apps.</em>
   <br>
-  ~0% de CPU — decodificação por hardware.
+  Hardware-decoded video at ~0% CPU. Desktop + lock screen.
+  <br>
+  Survives sleep, spaces, and restarts.
   <br><br>
 </p>
 
 ---
 
-## Instalação
+## Install
 
-Abre o Terminal e cola:
+### Homebrew (recommended)
+
+Don't have Homebrew? Install it first:
+
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
+
+Then:
+
+```bash
+brew tap monkfrodo/palantir
+brew install palantir
+```
+
+### One-liner (no Homebrew needed)
 
 ```bash
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/monkfrodo/palantir/main/install.sh)"
 ```
 
-Isso vai:
-1. Baixar o Palantir pra `~/.palantir/`
-2. Baixar os wallpapers automaticamente
-3. Compilar o app
-4. Configurar pra abrir junto com o Mac
+Downloads, compiles, and configures everything automatically.
 
-Pronto. Procura o **icone de TV** na barra de menu.
+---
 
-## Como usar
+## Usage
 
-Clica no icone de **TV** na menu bar e depois em **Open Gallery**.
+Look for the **📺 TV icon** in your menu bar.
 
-Passa o mouse por cima de qualquer wallpaper e escolhe:
+Click it → **Open Gallery** → hover any wallpaper and pick:
 
-| Botao | O que faz |
+| Button | What it does |
 |---|---|
-| **Both** | Desktop + tela de bloqueio |
-| **Desktop** | So o desktop animado |
-| **Lock** | So a tela de bloqueio |
+| **Both** | Desktop + lock screen |
+| **Desktop** | Animated desktop wallpaper |
+| **Lock** | Lock screen wallpaper |
 
-Pra parar, clica em **Stop Wallpaper** no menu.
+Click **Stop Wallpaper** in the menu to stop.
 
-### Adicionar wallpapers novos
+### Add your own wallpapers
 
-Joga qualquer `.mov` ou `.mp4` na pasta `~/.palantir/wallpapers/` e clica **Refresh** na galeria.
+Drop any `.mov` or `.mp4` into `~/.palantir/wallpapers/` and hit **Refresh** in the gallery.
 
-## Como funciona
+---
 
-- **Desktop** — janela invisivel no nivel do desktop tocando video em loop com AVPlayer
-- **Tela de bloqueio** — injeta os wallpapers no sistema nativo de aerials do macOS (mesmo mecanismo que apps como Wallux)
-- **Resiliente** — sobrevive troca de espacos, sleep, unlock e restart
+## Under the hood
 
-## Atualizar
+| Feature | How |
+|---|---|
+| **Desktop** | Borderless window at desktop level, AVPlayer looping video |
+| **Lock screen** | Injects into macOS native aerials system |
+| **Auto-start** | LaunchAgent — starts with your Mac |
+| **Multi-monitor** | One window per screen, all in sync |
+| **Resilient** | Survives space switches, sleep, unlock, restart |
+
+---
+
+## Update
 
 ```bash
-~/.palantir/install.sh
+brew upgrade palantir
 ```
 
-## Desinstalar
+Or: `~/.palantir/install.sh`
+
+## Uninstall
 
 ```bash
-~/.palantir/uninstall.sh
+brew uninstall palantir
 ```
 
-## Requisitos
+Or: `~/.palantir/uninstall.sh`
+
+## Requirements
 
 - macOS 14+ (Sonoma)
-- Xcode Command Line Tools (instalado automaticamente se nao tiver)
+- Xcode Command Line Tools (installed automatically)
 
 ---
 
 <p align="center">
-  <em>"O que você vê na pedra?"</em>
+  <em>"What do you see in the stone?"</em>
 </p>

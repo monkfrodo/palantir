@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 import AVFoundation
 import CoreMedia
+import UserNotifications
 
 // MARK: - App Entry
 
@@ -37,6 +38,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var wallpaperManager = WallpaperManager()
     var galleryWindow: NSWindow?
 
+    let updater = WallpaperUpdater()
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
 
@@ -48,6 +51,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         wallpaperManager.loadWallpapers()
         wallpaperManager.restoreSaved()
+
+        // Request notification permission and start auto-update checker
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
+        updater.startChecking { [weak self] count in
+            self?.wallpaperManager.loadWallpapers()
+        }
     }
 
     @objc func showMenu() {
@@ -785,5 +794,85 @@ struct VideoThumbnailView: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - Auto-Update Checker
+
+class WallpaperUpdater {
+    private let repo = "monkfrodo/palantir"
+    private let checkInterval: TimeInterval = 6 * 60 * 60 // 6 hours
+    private var timer: Timer?
+
+    func startChecking(onNewWallpapers: @escaping (Int) -> Void) {
+        // Check once on launch (after a short delay)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 30) { [weak self] in
+            self?.checkForNewWallpapers(onNewWallpapers: onNewWallpapers)
+        }
+        // Then every 6 hours
+        timer = Timer.scheduledTimer(withTimeInterval: checkInterval, repeats: true) { [weak self] _ in
+            self?.checkForNewWallpapers(onNewWallpapers: onNewWallpapers)
+        }
+    }
+
+    private func checkForNewWallpapers(onNewWallpapers: @escaping (Int) -> Void) {
+        let urlString = "https://api.github.com/repos/\(repo)/releases/latest"
+        guard let url = URL(string: urlString) else { return }
+
+        URLSession.shared.dataTask(with: url) { [weak self] data, _, error in
+            guard let self = self, let data = data, error == nil else { return }
+            guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let assets = json["assets"] as? [[String: Any]] else { return }
+
+            let wallpapersDir = LiveWallpaperApp.wallpapersDir
+            let existing = (try? FileManager.default.contentsOfDirectory(atPath: wallpapersDir.path)) ?? []
+
+            var downloaded = 0
+            let group = DispatchGroup()
+
+            for asset in assets {
+                guard let downloadURL = asset["browser_download_url"] as? String,
+                      let rawName = asset["name"] as? String,
+                      let assetURL = URL(string: downloadURL) else { continue }
+
+                let ext = (rawName as NSString).pathExtension.lowercased()
+                guard ["mov", "mp4", "m4v"].contains(ext) else { continue }
+
+                // GitHub replaces spaces with dots — restore them
+                let nameWithoutExt = (rawName as NSString).deletingPathExtension
+                    .replacingOccurrences(of: ".", with: " ")
+                let cleanName = "\(nameWithoutExt).\(ext)"
+
+                if existing.contains(cleanName) { continue }
+
+                group.enter()
+                URLSession.shared.downloadTask(with: assetURL) { tempURL, _, dlError in
+                    defer { group.leave() }
+                    guard let tempURL = tempURL, dlError == nil else { return }
+                    let dest = wallpapersDir.appendingPathComponent(cleanName)
+                    try? FileManager.default.moveItem(at: tempURL, to: dest)
+                    downloaded += 1
+                }.resume()
+            }
+
+            group.notify(queue: .main) {
+                if downloaded > 0 {
+                    onNewWallpapers(downloaded)
+                    self.sendNotification(count: downloaded)
+                }
+            }
+        }.resume()
+    }
+
+    private func sendNotification(count: Int) {
+        let content = UNMutableNotificationContent()
+        content.title = "Palantir"
+        content.body = count == 1
+            ? "1 new wallpaper downloaded. Open the gallery to check it out!"
+            : "\(count) new wallpapers downloaded. Open the gallery to check them out!"
+        content.sound = .default
+
+        let request = UNNotificationRequest(identifier: "palantir-new-wallpapers", content: content, trigger: nil)
+        UNUserNotificationCenter.current().add(request)
     }
 }
